@@ -21,3 +21,17 @@
 //  Validate, sanitize, then add first value to Name column
 //  Validate, sanitize, then add second value to Surnme column
 //  Validate, sanitize, then add third value to Email column
+//
+
+require __DIR__ . '/vendor/autoload.php';
+
+use Aura\Cli\CliFactory;
+
+$cli_factory = new CliFactory;
+$context = $cli_factory->newContext($GLOBALS);
+
+$env    = $context->env->get();
+$server = $context->server->get();
+$argv   = $context->argv->get();
+
+fwrite(STDOUT, 'context: '. json_encode($argv) . PHP_EOL);
