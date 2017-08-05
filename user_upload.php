@@ -26,9 +26,11 @@
 require __DIR__ . '/vendor/autoload.php';
 
 use Aura\Cli\CliFactory;
+use Aura\Cli\Status;
 
 $cli_factory = new CliFactory;
 $context = $cli_factory->newContext($GLOBALS);
+$stdio = $cli_factory->newStdio();
 
 // Set the CLI options
 $options = array(
@@ -50,14 +52,55 @@ $user   		= $getopt->get(  '-u', 				false);
 $pass  			= $getopt->get(  '-p', 				false);
 $host   		= $getopt->get(  '-h', 				false);
 $help   		= $getopt->get(	'--help', 			false);
+// This variable will be filled if there are any illegal options used
+$illegal_arg 	= $getopt->get(	   1,				null);
+
 
 // Handle any CLI errors
+$table_exists = false;
+
+function _exit($status) {
+	exit('Exited with code '.$status.'.'.PHP_EOL);
+}
+
 if ($getopt->hasErrors()) {
     $errors = $getopt->getErrors();
     foreach ($errors as $error) {
-		fwrite(STDOUT, 'error: '. json_encode($error->getMessage()) . PHP_EOL);
+    	$stdio->errln('<<red>>Error: '.$error->getMessage().'<<reset>>');
     }
+    _exit(Status::USAGE);
 };
+if($illegal_arg) {
+	$stdio->errln('<<red>>Error: The option \''.$illegal_arg.'\' is not defined.<<reset>>');
+	_exit(Status::USAGE);
+}
+if($help) {
+	if($argc > 2) {
+		$stdio->errln('<<red>>Error: The \'--help\' flag should not include any other arguments.<<reset>>');
+		_exit(Status::USAGE);
+	}
+	// display_help();
+}
+if($create_table) {
+	// create_table();
+	$table_exists = true;
+	$stdio->outln('<<green>>Users table added to DB.<<reset>>');
+	if(!$file) _exit(Status::SUCCESS);
+}
+if($file) {
+	if(!$table_exists && !$dry_run) {
+		$stdio->errln('<<red>>Error: Users table does not exist. Run \'php user_upload.php --create_table\', then run this command again.<<reset>>');
+		_exit(Status::UNAVAILABLE);
+	}
+	// $data = read_file($file);
+	if(!$dry_run) {
+		// save_data_to_DB($data);
+		$stdio->outln('<<green>>File successfully read into DB.users.<<reset>>');
+		_exit(Status::SUCCESS);
+	}
+	$stdio->outln('<<green>>Successful dry run completed. No data added to DB.users.<<reset>>');
+	_exit(Status::SUCCESS);
+}
+$stdio->errln('<<red>>Error: No file specified.<<reset>>');
+_exit(Status::USAGE);
 
-fwrite(STDOUT, 'file: '. json_encode($file) . PHP_EOL);
-fwrite(STDOUT, 'user: '. json_encode($user) . PHP_EOL);
