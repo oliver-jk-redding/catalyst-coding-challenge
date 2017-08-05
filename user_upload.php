@@ -30,8 +30,34 @@ use Aura\Cli\CliFactory;
 $cli_factory = new CliFactory;
 $context = $cli_factory->newContext($GLOBALS);
 
-$env    = $context->env->get();
-$server = $context->server->get();
-$argv   = $context->argv->get();
+// Set the CLI options
+$options = array(
+    'file:',
+    'create_table',
+    'dry_run',
+    'u:',
+    'p:',
+    'h:',
+    'help'
+);
+$getopt = $context->getopt($options);
 
-fwrite(STDOUT, 'context: '. json_encode($argv) . PHP_EOL);
+// Get the CLI options used in the command line
+$file   		= $getopt->get(	'--file', 			false);
+$create_table   = $getopt->get(	'--create_table', 	false);
+$dry_run   		= $getopt->get(	'--dry_run', 		false);
+$user   		= $getopt->get(  '-u', 				false);
+$pass  			= $getopt->get(  '-p', 				false);
+$host   		= $getopt->get(  '-h', 				false);
+$help   		= $getopt->get(	'--help', 			false);
+
+// Handle any CLI errors
+if ($getopt->hasErrors()) {
+    $errors = $getopt->getErrors();
+    foreach ($errors as $error) {
+		fwrite(STDOUT, 'error: '. json_encode($error->getMessage()) . PHP_EOL);
+    }
+};
+
+fwrite(STDOUT, 'file: '. json_encode($file) . PHP_EOL);
+fwrite(STDOUT, 'user: '. json_encode($user) . PHP_EOL);
