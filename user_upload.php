@@ -1,3 +1,5 @@
+#!/usr/bin/php -q
+
 <?php
 
 // Load CSV file
@@ -27,8 +29,10 @@ require __DIR__ . '/vendor/autoload.php';
 
 use Aura\Cli\CliFactory;
 use Aura\Cli\Status;
+use Aura\Cli\Context\OptionFactory;
+use Aura\Cli\Help;
 
-class CSV_To_Database_Reader {
+class User_Upload {
 
 	protected $stdio;   // Object to handle IO
 	protected $context; // Context for the CLI application with arguments
@@ -42,19 +46,24 @@ class CSV_To_Database_Reader {
 		'help'
 	);
 	protected $getopt;	// Object that retrieves options passed as arguments in the Command Line
+	protected $argc;    // Number of arguments passed in Command Line
+	protected $help;
 
-	function __construct() {
+	function __construct($argc) {
 		$cli_factory 	= new CliFactory;
 		$this->context 	= $cli_factory->newContext($GLOBALS);
 		$this->stdio 	= $cli_factory->newStdio();
 		$this->getopt 	= $this->context->getopt($this->cli_options);
+		$this->argc 	= $argc;
+		$this->help 	= new Help(new OptionFactory);
 
+		$this->setup_help();
 		$this->init();
 	}
 
 	function init() {
 		$options = $this->get_options_from_command_line();
-		$this->handle_any_CLI_errors($options);
+		$this->process_options($options);
 	}
 
 	function get_options_from_command_line() {
@@ -72,49 +81,75 @@ class CSV_To_Database_Reader {
 		);
 	}
 
-	function handle_any_CLI_errors($options) {
+	function process_options($options) {
 		$table_exists = false;
 
+		if($this->argc == 1) {
+			$this->stdio->errln("<<red>>Error: No arguments. See usage below:<<reset>>");
+			$this->display_help();
+			$this->exit(Status::USAGE);
+		}
+		// Handle CLI errors
 		if ($this->getopt->hasErrors()) {
 		    $errors = $this->getopt->getErrors();
 		    foreach ($errors as $error) {
-		    	$this->stdio->errln('<<red>>Error: '.$error->getMessage().'<<reset>>');
+		    	$this->stdio->errln("<<red>>Error: {$error->getMessage()}<<reset>>");
 		    }
 		    $this->exit(Status::USAGE);
-		};
+		}
 		if($options['illegal_arg']) {
-			$this->stdio->errln('<<red>>Error: The option \''.$options['illegal_arg'].'\' is not defined.<<reset>>');
+			$this->stdio->errln("<<red>>Error: The option '{$options['illegal_arg']}' is not defined.<<reset>>");
 			$this->exit(Status::USAGE);
 		}
 		if($options['help']) {
-			if($argc > 2) {
-				$this->stdio->errln('<<red>>Error: The \'--help\' flag should not include any other arguments.<<reset>>');
+			if($this->argc > 2) {
+				$this->stdio->errln("<<red>>Error: The '--help' flag should not include any other arguments.<<reset>>");
 				$this->exit(Status::USAGE);
 			}
-			// $this->display_help();
+			$this->display_help();
+			$this->exit(Status::SUCCESS);
 		}
 		if($options['create_table']) {
 			// $this->create_table();
 			$table_exists = true;
-			$this->stdio->outln('<<green>>Users table added to DB.<<reset>>');
+			$this->stdio->outln("<<green>>'Users' table added to DB.<<reset>>");
 			if(!$options['file']) $this->exit(Status::SUCCESS);
 		}
 		if($options['file']) {
+			// $this->validate_file_name($options['file']);
 			if(!$table_exists && !$options['dry_run']) {
-				$this->stdio->errln('<<red>>Error: Users table does not exist. Run \'php user_upload.php --create_table\', then run this command again.<<reset>>');
+				$this->stdio->errln("<<red>>Error: 'Users' table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
 				$this->exit(Status::UNAVAILABLE);
 			}
 			// $data = $this->read_file($options['file']);
 			if(!$options['dry_run']) {
 				// $this->save_data_to_DB($data);
-				$this->stdio->outln('<<green>>File successfully read into DB.users.<<reset>>');
+				$this->stdio->outln("<<green>>'{$options['file']}' successfully read into DB.users.<<reset>>");
 				$this->exit(Status::SUCCESS);
 			}
-			$this->stdio->outln('<<green>>Successful dry run completed. No data added to DB.users.<<reset>>');
+			$this->stdio->outln("<<green>>Successful dry run of '{$options['file']}' completed. No data added to DB.users.<<reset>>");
 			$this->exit(Status::SUCCESS);
 		}
-		$this->stdio->errln('<<red>>Error: No file specified.<<reset>>');
+		$this->stdio->errln("<<red>>Error: No file specified.<<reset>>");
 		$this->exit(Status::USAGE);
+	}
+
+	function setup_help() {
+		$this->help->setSummary('Upload a CSV file of users to a database.');
+		$this->help->setUsage('[options]');
+		$this->help->setOptions(array(
+			'file:'			=> "This is the name of the CSV to be parsed.",
+			'create_table'	=> "This will cause the MySQL users table to be built.",
+			'dry_run'		=> "This will be used with the '--file' directive in the instance that we want to run the script but not insert into the DB. All other functions will be executed, but the database won't be altered.",
+			'u:'			=> "MySQL username.",
+			'p:'			=> "MySQL password.",
+			'h:'			=> "MySQL host.",
+			'help'			=> "Output usage information.",
+		));
+	}
+
+	function display_help() {
+		$this->stdio->outln($this->help->getHelp('./user_upload.php'));
 	}
 
 	function exit($status) {
@@ -122,5 +157,6 @@ class CSV_To_Database_Reader {
 	}
 }
 
-new CSV_To_Database_Reader();
+new User_Upload($argc);
 
+?>

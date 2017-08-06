@@ -1,0 +1,2 @@
+Todo:
+Add notice that command can be run using `php user_upload.php` or `./user_upload.php`, however in case of the latter, the permissions must first be set with the command `chmod 755 user_upload.php`.
