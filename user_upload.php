@@ -121,7 +121,7 @@ class User_Upload {
 				$this->stdio->errln("<<red>>Error: 'Users' table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
 				$this->exit(Status::UNAVAILABLE);
 			}
-			// $data = $this->read_file($options['file']);
+			$data = $this->parse_CSV($options['file']);
 			if(!$options['dry_run']) {
 				// $this->save_data_to_DB($data);
 				$this->stdio->outln("<<green>>'{$options['file']}' successfully read into DB.users.<<reset>>");
@@ -153,7 +153,7 @@ class User_Upload {
 	}
 
 	function validate_file( $file ) {
-		if( !$file || !file_exists( $file ) ) {
+		if( !$file || !file_exists( $file ) || !is_file( $file ) ) {
 			$this->stdio->errln( "<<red>>Error: {$file} does not exist.<<reset>>" );
 			$this->exit( Status::NOINPUT );
 		}
@@ -162,6 +162,40 @@ class User_Upload {
 			$this->exit( Status::DATAERR );
 		}
 		return; // If no problems were found, return and continue.
+	}
+
+	function parse_CSV( $file ) {
+		$pointer = fopen( $file, 'r' );
+		while( !feof( $pointer ) ) {
+			if( ftell( $pointer ) === 0 ) {
+				$csv_headers = fgetcsv( $pointer );
+				foreach( $csv_headers as $header ) {
+					$header = $this->trim( $header );
+					$header = ucwords( $header );
+					$this->stdio->outln( "header: ".json_encode( $header, JSON_PRETTY_PRINT ) );
+					// DB.write( $header );
+				}
+				continue;
+			}
+			$line = fgetcsv( $pointer );
+			if( !$line ) continue;
+			$line = array_filter( $line );
+			foreach( $line as $index => $value ) {
+				$header = $this->trim( $value );
+				if( $index = 2 ) {
+					// $this->validate_email( $value );
+				}
+				else {
+					$value = ucwords( strtolower( $value ) );
+				}
+				$this->stdio->outln( "value: ".json_encode( $value, JSON_PRETTY_PRINT ) );
+			}
+		}
+		fclose( $pointer );
+	}
+
+	function trim( $value ) {
+		return trim( $value, " \t\n\r");
 	}
 
 	function exit($status) {

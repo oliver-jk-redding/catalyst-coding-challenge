@@ -3,3 +3,4 @@ vagrant-provision-scripts
 Vagrantfile
 /vendor
 run
+users2.csv
