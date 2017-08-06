@@ -116,7 +116,7 @@ class User_Upload {
 			if(!$options['file']) $this->exit(Status::SUCCESS);
 		}
 		if($options['file']) {
-			// $this->validate_file_name($options['file']);
+			$this->validate_file($options['file']);
 			if(!$table_exists && !$options['dry_run']) {
 				$this->stdio->errln("<<red>>Error: 'Users' table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
 				$this->exit(Status::UNAVAILABLE);
@@ -150,6 +150,18 @@ class User_Upload {
 
 	function display_help() {
 		$this->stdio->outln($this->help->getHelp('./user_upload.php'));
+	}
+
+	function validate_file( $file ) {
+		if( !$file || !file_exists( $file ) ) {
+			$this->stdio->errln( "<<red>>Error: {$file} does not exist.<<reset>>" );
+			$this->exit( Status::NOINPUT );
+		}
+		if( pathinfo( $file, PATHINFO_EXTENSION ) !== 'csv' ) {
+			$this->stdio->errln( "<<red>>Error: Incorrect file type. Please use a CSV file.<<reset>>" );
+			$this->exit( Status::DATAERR );
+		}
+		return; // If no problems were found, return and continue.
 	}
 
 	function exit($status) {
