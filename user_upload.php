@@ -92,7 +92,7 @@ class User_Upload {
 			$this->exit(Status::USAGE);
 		}
 		// Handle CLI errors
-		if ($this->getopt->hasErrors()) {
+		if($this->getopt->hasErrors()) {
 		    $errors = $this->getopt->getErrors();
 		    foreach ($errors as $error) {
 		    	$this->stdio->errln("<<red>>Error: {$error->getMessage()}<<reset>>");
@@ -112,7 +112,7 @@ class User_Upload {
 			$this->exit(Status::SUCCESS);
 		}
 		if($options['create_table']) {
-			// $this->create_table();
+			$this->create_users_table();
 			$table_exists = true;
 			$this->stdio->outln("<<green>>Users table added to DB.<<reset>>");
 			if(!$options['file']) $this->exit(Status::SUCCESS);
@@ -256,13 +256,17 @@ class User_Upload {
 		);
 	}
 
-	function handle_connection_error($err) {
-		// try{
-			// $this->pdo->connect();
-		// } catch(PDOException $ex) {
+	function handle_mysql_error($err) {
 		$this->stdio->errln("<<red>>Unable to connect to DB because of the following error: " . PHP_EOL . $err . "<<reset>>");
-		$this->exit(STATUS::DATAERR);
-		// }
+		$this->exit(STATUS::FAILURE);
+	}
+
+	function create_users_table() {
+		try {
+			$res = $this->pdo->exec('CREATE TABLE IF NOT EXISTS DB.users (name VARCHAR(30), surname VARCHAR(30), email VARCHAR(30));');
+		} catch(PDOException $ex) {
+			$this->handle_mysql_error($ex);
+		}
 	}
 
 	function exit($status) {
