@@ -157,7 +157,7 @@ class User_Upload {
 
 	function parse_CSV($file) {
 		$errors 	= array();
-		$query 		= "";
+		$query 		= array();
 		$pointer 	= fopen($file, 'r');
 
 		while(!feof($pointer)) {
@@ -174,7 +174,7 @@ class User_Upload {
 
 			$line = array_values(array_filter($line)); // Filter out empty cells
 
-			$query .= "(";
+			$row = "(";
 
 			foreach($line as $index => $record) {
 
@@ -190,23 +190,22 @@ class User_Upload {
 				if($index === 2) {
 					$record = strtolower($record);
 					if(!$this->valid_email($record)) {
-						$errors[] = "Error: Skipped email address '{$record}' because it was invalid.";
-						$query .= "\"\"";
+						$errors[] = "Error: Skipped record for email '{$record}' because it was invalid.";
+						$row = false;
 					}
 					else {
-						$query .= "\"{$record}\"";
+						$row .= "\"{$record}\")";
 					}
 				}
 
 				// Handle names
 				else {
 					$record = $this->format_name($record);
-					$query .= "\"{$record}\",";
+					$row .= "\"{$record}\",";
 				}
 			}
-			$query = trim($query, ",") . "),";
+			if($row) $query[] = $row;
 		}
-		$query = trim($query, ",");
 
 		fclose($pointer);
 
@@ -261,7 +260,11 @@ class User_Upload {
 
 	function create_users_table() {
 		try {
-			$this->pdo->exec("CREATE TABLE IF NOT EXISTS DB.users (name VARCHAR(30), surname VARCHAR(30), email VARCHAR(30));");
+			$this->pdo->exec("CREATE TABLE IF NOT EXISTS DB.users (
+				name 	VARCHAR(30),
+				surname VARCHAR(30),
+				email 	VARCHAR(30) NOT NULL UNIQUE
+			);");
 		} catch(PDOException $ex) {
 			$this->handle_mysql_error($ex);
 		}
@@ -269,7 +272,21 @@ class User_Upload {
 
 	function upload_to_DB($data) {
 		try {
-			$this->pdo->exec("INSERT INTO DB.users (name,surname,email) VALUES{$data};");
+			$this->pdo->connect();
+		} catch(PDOException $ex) {
+			$this->handle_mysql_error($ex);
+		}
+
+		foreach($data as $row) {
+			try {
+				$this->pdo->exec("INSERT INTO DB.users (name,surname,email) VALUES{$row};");
+			} catch(PDOException $ex) {
+				$this->stdio->errln("<<red>>{$ex}<<reset>>");
+			}
+		}
+
+		try {
+			$this->pdo->disconnect();
 		} catch(PDOException $ex) {
 			$this->handle_mysql_error($ex);
 		}
