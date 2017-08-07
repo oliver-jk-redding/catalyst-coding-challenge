@@ -121,7 +121,7 @@ class User_Upload {
 				$this->stdio->errln("<<red>>Error: 'Users' table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
 				$this->exit(Status::UNAVAILABLE);
 			}
-			$data = $this->parse_CSV($options['file']);
+			$data = $this->parse_CSV($options['file'], $options['dry_run']);
 			if(!$options['dry_run']) {
 				// $this->save_data_to_DB($data);
 				$this->stdio->outln("<<green>>'{$options['file']}' successfully read into DB.users.<<reset>>");
@@ -152,50 +152,81 @@ class User_Upload {
 		$this->stdio->outln($this->help->getHelp('./user_upload.php'));
 	}
 
-	function validate_file( $file ) {
-		if( !$file || !file_exists( $file ) || !is_file( $file ) ) {
-			$this->stdio->errln( "<<red>>Error: {$file} does not exist.<<reset>>" );
-			$this->exit( Status::NOINPUT );
+	function validate_file($file) {
+		if(!$file || !file_exists($file) || !is_file($file)) {
+			$this->stdio->errln("<<red>>Error: {$file} does not exist.<<reset>>");
+			$this->exit(Status::NOINPUT);
 		}
-		if( pathinfo( $file, PATHINFO_EXTENSION ) !== 'csv' ) {
-			$this->stdio->errln( "<<red>>Error: Incorrect file type. Please use a CSV file.<<reset>>" );
-			$this->exit( Status::DATAERR );
+		if(pathinfo($file, PATHINFO_EXTENSION) !== 'csv') {
+			$this->stdio->errln("<<red>>Error: Incorrect file type. Please use a CSV file.<<reset>>");
+			$this->exit(Status::DATAERR);
 		}
 		return; // If no problems were found, return and continue.
 	}
 
-	function parse_CSV( $file ) {
-		$pointer = fopen( $file, 'r' );
-		while( !feof( $pointer ) ) {
-			if( ftell( $pointer ) === 0 ) {
-				$csv_headers = fgetcsv( $pointer );
-				foreach( $csv_headers as $header ) {
-					$header = $this->trim( $header );
-					$header = ucwords( $header );
-					$this->stdio->outln( "header: ".json_encode( $header, JSON_PRETTY_PRINT ) );
-					// DB.write( $header );
-				}
-				continue;
+	function parse_CSV($file, $dry_run) {
+		$errors = array();
+		$pointer = fopen($file, 'r');
+		while(!feof($pointer)) {
+			if(ftell($pointer) === 0) {
+				$csv_headers = fgetcsv($pointer);
+				continue; // Skip the CSV headers
 			}
-			$line = fgetcsv( $pointer );
-			if( !$line ) continue;
-			$line = array_filter( $line );
-			foreach( $line as $index => $value ) {
-				$header = $this->trim( $value );
-				if( $index = 2 ) {
-					// $this->validate_email( $value );
+			$line = fgetcsv($pointer);
+			if(!$line) continue;
+			$line = array_values(array_filter($line));
+			foreach($line as $index => $value) {
+
+				// Skip any values beyond three columns
+				if($index > 2) {
+					$errors[] = "Error: Skipped '{$value}' because it exceeded the expected number of values (3) per row.";
+					break;
 				}
+
+				$value = $this->trim($value); // Trim whitespace and escaped characters
+
+				// Handle emails
+				if($index === 2) {
+					$value = strtolower($value);
+					if(!$this->valid_email($value)) {
+						$errors[] = "Error: Skipped email address '{$value}' because it was invalid.";
+					}
+					else {
+						$this->stdio->errln("<<green>>Email is legit.<<reset>>");
+					}
+				}
+				// Handle names
 				else {
-					$value = ucwords( strtolower( $value ) );
+					$value = $this->format_name($value);
 				}
-				$this->stdio->outln( "value: ".json_encode( $value, JSON_PRETTY_PRINT ) );
 			}
 		}
-		fclose( $pointer );
+		fclose($pointer);
+
+		// Output parsing errors
+		if(!empty($errors)) {
+			$this->stdio->outln("<<yellow>>{$file} was parsed with errors. See below:<<reset>>");
+			foreach($errors as $error) {
+				$this->stdio->errln("<<red>>{$error}<<reset>>");
+			}
+		}
 	}
 
-	function trim( $value ) {
-		return trim( $value, " \t\n\r");
+	function trim($value) {
+		return trim($value, " \t\n\r");
+	}
+
+	function format_name($name) {
+		// Captilise the names properly, catering to apostrophied names e.g. O'Hare
+		$name = explode("'", $name);
+		$name = array_map(function($partial) {
+			return ucwords(strtolower($partial));
+		}, $name);
+		return implode("'", $name);
+	}
+
+	function valid_email($email) {
+		return filter_var($email, FILTER_VALIDATE_EMAIL);
 	}
 
 	function exit($status) {
