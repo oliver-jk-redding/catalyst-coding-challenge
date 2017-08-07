@@ -4,3 +4,5 @@ Vagrantfile
 /vendor
 run
 users4.csv
+users2.csv
+.~*

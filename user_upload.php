@@ -112,22 +112,22 @@ class User_Upload {
 		if($options['create_table']) {
 			// $this->create_table();
 			$table_exists = true;
-			$this->stdio->outln("<<green>>'Users' table added to DB.<<reset>>");
+			$this->stdio->outln("<<green>>Users table added to DB.<<reset>>");
 			if(!$options['file']) $this->exit(Status::SUCCESS);
 		}
 		if($options['file']) {
 			$this->validate_file($options['file']);
 			if(!$table_exists && !$options['dry_run']) {
-				$this->stdio->errln("<<red>>Error: 'Users' table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
+				$this->stdio->errln("<<red>>Error: Users table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
 				$this->exit(Status::UNAVAILABLE);
 			}
 			$data = $this->parse_CSV($options['file'], $options['dry_run']);
 			if(!$options['dry_run']) {
 				// $this->save_data_to_DB($data);
-				$this->stdio->outln("<<green>>'{$options['file']}' successfully read into DB.users.<<reset>>");
+				$this->stdio->outln("<<green>>{$options['file']} successfully uploaded to DB.users.<<reset>>");
 				$this->exit(Status::SUCCESS);
 			}
-			$this->stdio->outln("<<green>>Successful dry run of '{$options['file']}' completed. No data added to DB.users.<<reset>>");
+			$this->stdio->outln("<<green>>Dry run of {$options['file']} completed. No data added to DB.users.<<reset>>");
 			$this->exit(Status::SUCCESS);
 		}
 		$this->stdio->errln("<<red>>Error: No file specified.<<reset>>");
@@ -175,29 +175,32 @@ class User_Upload {
 			$line = fgetcsv($pointer);
 			if(!$line) continue;
 			$line = array_values(array_filter($line));
-			foreach($line as $index => $value) {
+			foreach($line as $index => $record) {
 
-				// Skip any values beyond three columns
+				// Skip any records beyond three columns
 				if($index > 2) {
-					$errors[] = "Error: Skipped '{$value}' because it exceeded the expected number of values (3) per row.";
+					$errors[] = "Error: Skipped '{$record}' because it exceeded the expected number of records (3) per row.";
 					break;
 				}
 
-				$value = $this->trim($value); // Trim whitespace and escaped characters
+				$record = $this->trim($record); // Trim whitespace and escaped characters
 
 				// Handle emails
 				if($index === 2) {
-					$value = strtolower($value);
-					if(!$this->valid_email($value)) {
-						$errors[] = "Error: Skipped email address '{$value}' because it was invalid.";
+					$record = strtolower($record);
+					if(!$this->valid_email($record)) {
+						$errors[] = "Error: Skipped email address '{$record}' because it was invalid.";
 					}
-					else {
-						$this->stdio->errln("<<green>>Email is legit.<<reset>>");
+					elseif(!$dry_run) {
+						$this->save_to_DB($record);
 					}
 				}
 				// Handle names
 				else {
-					$value = $this->format_name($value);
+					$record = $this->format_name($record);
+					if(!$dry_run) {
+						$this->save_to_DB($record);
+					}
 				}
 			}
 		}
@@ -205,15 +208,20 @@ class User_Upload {
 
 		// Output parsing errors
 		if(!empty($errors)) {
-			$this->stdio->outln("<<yellow>>{$file} was parsed with errors. See below:<<reset>>");
+			$num_errors = count($errors);
+			$plural = $num_errors > 1 ? 's' : '';
+			$this->stdio->outln("<<yellow>>{$file} was parsed with {$num_errors} error{$plural}. See below:<<reset>>");
 			foreach($errors as $error) {
 				$this->stdio->errln("<<red>>{$error}<<reset>>");
 			}
 		}
+		else {
+			$this->stdio->outln("<<green>>{$file} was successfully parsed with no errors.<<reset>>");
+		}
 	}
 
-	function trim($value) {
-		return trim($value, " \t\n\r");
+	function trim($record) {
+		return trim($record, " \t\n\r");
 	}
 
 	function format_name($name) {
@@ -227,6 +235,10 @@ class User_Upload {
 
 	function valid_email($email) {
 		return filter_var($email, FILTER_VALIDATE_EMAIL);
+	}
+
+	function save_to_DB($record) {
+
 	}
 
 	function exit($status) {
