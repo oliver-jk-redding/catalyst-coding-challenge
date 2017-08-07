@@ -31,6 +31,7 @@ use Aura\Cli\CliFactory;
 use Aura\Cli\Status;
 use Aura\Cli\Context\OptionFactory;
 use Aura\Cli\Help;
+use Aura\Sql\ExtendedPdo;
 
 class User_Upload {
 
@@ -47,7 +48,8 @@ class User_Upload {
 	);
 	protected $getopt;	// Object that retrieves options passed as arguments in the Command Line
 	protected $argc;    // Number of arguments passed in Command Line
-	protected $help;
+	protected $help;	// Object to store and print help information
+	protected $pdo;		// A PHP Data Object for interacting with the database
 
 	function __construct($argc) {
 		$cli_factory 	= new CliFactory;
@@ -58,11 +60,11 @@ class User_Upload {
 		$this->help 	= new Help(new OptionFactory);
 
 		$this->setup_help();
-		$this->init();
-	}
 
-	function init() {
 		$options = $this->get_options_from_command_line();
+
+		$this->pdo = $this->new_PDO($options['host'], $options['user'], $options['pass']);
+
 		$this->process_options($options);
 	}
 
@@ -238,7 +240,29 @@ class User_Upload {
 	}
 
 	function save_to_DB($record) {
+	}
 
+	function new_PDO($hostname, $username, $password) {
+		// This script requires the pdo_mysql php extension, so check to see this is installed.
+		if(!extension_loaded('pdo_mysql')) {
+			$this->stdio->errln("<<red>>Missing pdo_mysql extension for PHP. Install the php-mysql package to install the required extension e.g. 'sudo apt-get install php-mysql'.<<reset>>");
+			$this->exit(STATUS::UNAVAILABLE);
+		}
+
+		return new ExtendedPdo(
+		    "mysql:host={$hostname};dbname=DB",
+		    "{$username}",
+		    "{$password}"
+		);
+	}
+
+	function handle_connection_error($err) {
+		// try{
+			// $this->pdo->connect();
+		// } catch(PDOException $ex) {
+		$this->stdio->errln("<<red>>Unable to connect to DB because of the following error: " . PHP_EOL . $err . "<<reset>>");
+		$this->exit(STATUS::DATAERR);
+		// }
 	}
 
 	function exit($status) {
