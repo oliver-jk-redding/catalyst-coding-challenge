@@ -2,29 +2,6 @@
 
 <?php
 
-// Load CSV file
-//
-// Parse CSV function:
-//  Convert CSV data to string
-//  Split CSV data into an array separated by newline characters - one element for each row
-//  Split each element of CSV data into further arrays separated by comma characters - one element for
-//  each value
-//
-// Create Users Table function:
-//  Create Users Table if it doesn't already exist
-//  Add Name column if not exists
-//  Add Surname column if not exists
-//  Add Email column if not exist
-//
-// Add CSV row to Database function:
-//  Take parsed CSV data as argument
-//  Iterate through array of rows
-//  For each row, iterate through array of values
-//  Validate, sanitize, then add first value to Name column
-//  Validate, sanitize, then add second value to Surnme column
-//  Validate, sanitize, then add third value to Email column
-//
-
 require __DIR__ . '/vendor/autoload.php';
 
 use Aura\Cli\CliFactory;
@@ -84,13 +61,14 @@ class User_Upload {
 	}
 
 	function process_options($options) {
-		$table_exists = false;
 
+		// Handle edge case of no arguments being passed
 		if($this->argc == 1) {
 			$this->stdio->errln("<<red>>Error: No arguments. See usage below:<<reset>>");
 			$this->display_help();
 			$this->exit(Status::USAGE);
 		}
+
 		// Handle CLI errors
 		if($this->getopt->hasErrors()) {
 		    $errors = $this->getopt->getErrors();
@@ -99,10 +77,14 @@ class User_Upload {
 		    }
 		    $this->exit(Status::USAGE);
 		}
+
+		// Handle illegal arguments
 		if($options['illegal_arg']) {
 			$this->stdio->errln("<<red>>Error: The option '{$options['illegal_arg']}' is not defined.<<reset>>");
 			$this->exit(Status::USAGE);
 		}
+
+		// Display help
 		if($options['help']) {
 			if($this->argc > 2) {
 				$this->stdio->errln("<<red>>Error: The '--help' flag should not include any other arguments.<<reset>>");
@@ -111,18 +93,18 @@ class User_Upload {
 			$this->display_help();
 			$this->exit(Status::SUCCESS);
 		}
+
+		// Create users table
 		if($options['create_table']) {
 			$this->create_users_table();
 			$table_exists = true;
 			$this->stdio->outln("<<green>>Users table added to DB.<<reset>>");
 			if(!$options['file']) $this->exit(Status::SUCCESS);
 		}
+
+		// Handle file
 		if($options['file']) {
 			$this->validate_file($options['file']);
-			// if(!$table_exists && !$options['dry_run']) {
-			// 	$this->stdio->errln("<<red>>Error: Users table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
-			// 	$this->exit(Status::UNAVAILABLE);
-			// }
 			$data = $this->parse_CSV($options['file']);
 			if(!$options['dry_run']) {
 				$this->upload_to_DB($data);
@@ -132,6 +114,8 @@ class User_Upload {
 			$this->stdio->outln("<<green>>Dry run of {$options['file']} completed. No data added to DB.users.<<reset>>");
 			$this->exit(Status::SUCCESS);
 		}
+
+		// Handle edge case of no file being provided with the file flag
 		$this->stdio->errln("<<red>>Error: No file specified.<<reset>>");
 		$this->exit(Status::USAGE);
 	}
@@ -155,14 +139,19 @@ class User_Upload {
 	}
 
 	function validate_file($file) {
+
+		// Handle non-existent file
 		if(!$file || !file_exists($file) || !is_file($file)) {
 			$this->stdio->errln("<<red>>Error: {$file} does not exist.<<reset>>");
 			$this->exit(Status::NOINPUT);
 		}
+
+		// Handle incorrect file type
 		if(pathinfo($file, PATHINFO_EXTENSION) !== 'csv') {
 			$this->stdio->errln("<<red>>Error: Incorrect file type. Please use a CSV file.<<reset>>");
 			$this->exit(Status::DATAERR);
 		}
+
 		return; // If no problems were found, return and continue.
 	}
 
@@ -175,17 +164,18 @@ class User_Upload {
 
 			// Skip the CSV headers
 			if(ftell($pointer) === 0) {
-				$csv_headers = fgetcsv($pointer);
+				fgetcsv($pointer);
 				continue;
 			}
 
 			$line = fgetcsv($pointer);
 
-			if(!$line) continue; // If line is empty, continue
+			if(!$line) continue; // If line is empty, skip it
 
 			$line = array_values(array_filter($line)); // Filter out empty cells
 
 			$query .= "(";
+
 			foreach($line as $index => $record) {
 
 				// Skip any records beyond three columns
@@ -194,7 +184,7 @@ class User_Upload {
 					break;
 				}
 
-				$record = $this->trim($record); // Trim whitespace and escaped characters
+				$record = trim($record, " \t\n\r"); // Trim whitespace and escaped characters
 
 				// Handle emails
 				if($index === 2) {
@@ -207,6 +197,7 @@ class User_Upload {
 						$query .= "\"{$record}\"";
 					}
 				}
+
 				// Handle names
 				else {
 					$record = $this->format_name($record);
@@ -235,10 +226,6 @@ class User_Upload {
 		return $query;
 	}
 
-	function trim($record) {
-		return trim($record, " \t\n\r");
-	}
-
 	function format_name($name) {
 		// Captilise the names properly, catering to apostrophied names e.g. O'Hare
 		$name = explode("'", $name);
@@ -252,10 +239,8 @@ class User_Upload {
 		return filter_var($email, FILTER_VALIDATE_EMAIL);
 	}
 
-	function save_to_DB($record) {
-	}
-
 	function new_PDO($hostname, $username, $password) {
+
 		// This script requires the pdo_mysql php extension, so check to see this is installed.
 		if(!extension_loaded('pdo_mysql')) {
 			$this->stdio->errln("<<red>>Missing pdo_mysql extension for PHP. Install the php-mysql package to install the required extension e.g. 'sudo apt-get install php-mysql'.<<reset>>");
@@ -283,7 +268,6 @@ class User_Upload {
 	}
 
 	function upload_to_DB($data) {
-		// fwrite(STDOUT, "INSERT INTO DB.users (name,surname,email) VALUES{$data};");
 		try {
 			$this->pdo->exec("INSERT INTO DB.users (name,surname,email) VALUES{$data};");
 		} catch(PDOException $ex) {

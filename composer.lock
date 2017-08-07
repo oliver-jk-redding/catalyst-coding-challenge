@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "2a231cbfc8ca023faa83c6ad5f1e6a05",
+    "hash": "61813175f3656a8dd859edc2745c1dc1",
     "packages": [
         {
             "name": "aura/cli",
@@ -125,8 +125,7 @@
     "prefer-lowest": false,
     "platform": {
         "php": "~7.0.0",
-        "ext-mysqli": "*",
-        "ext-mysqlnd": "*"
+        "ext-pdo_mysql": "*"
     },
     "platform-dev": []
 }

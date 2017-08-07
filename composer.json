@@ -1,7 +1,7 @@
 {
 	"require": {
 		"php": "~7.0.0",
-		"ext-pdo-mysql": "*",
+		"ext-pdo_mysql": "*",
 		"aura/cli": "2.2.*",
 		"aura/sql": "2.5.*"
 	}
