@@ -15,6 +15,7 @@ The other requirements for this script are included in the `composer.lock` file.
 ```
 composer install
 ```
+Note, this script also expects there to be a MySQL database called `DB`. The connection options in terms of hostname, username and password can be specified as per instructions below.
 
 ## How to run the script
 You can run this script with the following command typed from the project root:
