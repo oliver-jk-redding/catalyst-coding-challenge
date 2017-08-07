@@ -1,4 +1,4 @@
-# README for User Upload challenge for Catalyst candidate evaluation
+# User Upload challenge for Catalyst candidate evaluation
 
 ## Installation
 This script has been tested with the following:
@@ -33,11 +33,11 @@ This script has no required arguments but it does require at least one of the fo
 This can be used alone or in conjuction with the `--file` flag and associated options. It cannot have an argument. This will create the `users` table in the DB database. If this table already exists, it will do nothing.
 
 You must include the database connection flags in order to successfully connect to the database and complete this operation. Failure to do so will result in an error.
-- -u=<MySQL DB username>
-- -p=<MySQL DB password>
-- -h=<MySQL DB hostname>
+- `-u=<MySQL DB username>`
+- `-p=<MySQL DB password>`
+- `-h=<MySQL DB hostname>`
 
-#### --file
+#### --file <filename>
 If this option is included it must have a single argument - the name of a CSV file to upload to DB. This option will fail if the `users` table is not first added to the database, however, you can include this option alongside the `--create_table` flag to create the table at the same time as uploading the data.
 
 Just like the `--create_table` flag above, you must include the database connection flags in order to complete this operation. Failure to do so will result in an error.
