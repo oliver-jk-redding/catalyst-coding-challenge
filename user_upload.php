@@ -119,13 +119,13 @@ class User_Upload {
 		}
 		if($options['file']) {
 			$this->validate_file($options['file']);
-			if(!$table_exists && !$options['dry_run']) {
-				$this->stdio->errln("<<red>>Error: Users table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
-				$this->exit(Status::UNAVAILABLE);
-			}
-			$data = $this->parse_CSV($options['file'], $options['dry_run']);
+			// if(!$table_exists && !$options['dry_run']) {
+			// 	$this->stdio->errln("<<red>>Error: Users table does not exist. Run 'php user_upload.php --create_table', then run this command again.<<reset>>");
+			// 	$this->exit(Status::UNAVAILABLE);
+			// }
+			$data = $this->parse_CSV($options['file']);
 			if(!$options['dry_run']) {
-				// $this->save_data_to_DB($data);
+				$this->upload_to_DB($data);
 				$this->stdio->outln("<<green>>{$options['file']} successfully uploaded to DB.users.<<reset>>");
 				$this->exit(Status::SUCCESS);
 			}
@@ -166,17 +166,26 @@ class User_Upload {
 		return; // If no problems were found, return and continue.
 	}
 
-	function parse_CSV($file, $dry_run) {
-		$errors = array();
-		$pointer = fopen($file, 'r');
+	function parse_CSV($file) {
+		$errors 	= array();
+		$query 		= "";
+		$pointer 	= fopen($file, 'r');
+
 		while(!feof($pointer)) {
+
+			// Skip the CSV headers
 			if(ftell($pointer) === 0) {
 				$csv_headers = fgetcsv($pointer);
-				continue; // Skip the CSV headers
+				continue;
 			}
+
 			$line = fgetcsv($pointer);
-			if(!$line) continue;
-			$line = array_values(array_filter($line));
+
+			if(!$line) continue; // If line is empty, continue
+
+			$line = array_values(array_filter($line)); // Filter out empty cells
+
+			$query .= "(";
 			foreach($line as $index => $record) {
 
 				// Skip any records beyond three columns
@@ -192,20 +201,22 @@ class User_Upload {
 					$record = strtolower($record);
 					if(!$this->valid_email($record)) {
 						$errors[] = "Error: Skipped email address '{$record}' because it was invalid.";
+						$query .= "\"\"";
 					}
-					elseif(!$dry_run) {
-						$this->save_to_DB($record);
+					else {
+						$query .= "\"{$record}\"";
 					}
 				}
 				// Handle names
 				else {
 					$record = $this->format_name($record);
-					if(!$dry_run) {
-						$this->save_to_DB($record);
-					}
+					$query .= "\"{$record}\",";
 				}
 			}
+			$query = trim($query, ",") . "),";
 		}
+		$query = trim($query, ",");
+
 		fclose($pointer);
 
 		// Output parsing errors
@@ -220,6 +231,8 @@ class User_Upload {
 		else {
 			$this->stdio->outln("<<green>>{$file} was successfully parsed with no errors.<<reset>>");
 		}
+
+		return $query;
 	}
 
 	function trim($record) {
@@ -257,13 +270,22 @@ class User_Upload {
 	}
 
 	function handle_mysql_error($err) {
-		$this->stdio->errln("<<red>>Unable to connect to DB because of the following error: " . PHP_EOL . $err . "<<reset>>");
+		$this->stdio->errln("<<red>>{$err}<<reset>>");
 		$this->exit(STATUS::FAILURE);
 	}
 
 	function create_users_table() {
 		try {
-			$res = $this->pdo->exec('CREATE TABLE IF NOT EXISTS DB.users (name VARCHAR(30), surname VARCHAR(30), email VARCHAR(30));');
+			$this->pdo->exec("CREATE TABLE IF NOT EXISTS DB.users (name VARCHAR(30), surname VARCHAR(30), email VARCHAR(30));");
+		} catch(PDOException $ex) {
+			$this->handle_mysql_error($ex);
+		}
+	}
+
+	function upload_to_DB($data) {
+		// fwrite(STDOUT, "INSERT INTO DB.users (name,surname,email) VALUES{$data};");
+		try {
+			$this->pdo->exec("INSERT INTO DB.users (name,surname,email) VALUES{$data};");
 		} catch(PDOException $ex) {
 			$this->handle_mysql_error($ex);
 		}
