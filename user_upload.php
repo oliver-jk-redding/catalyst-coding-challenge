@@ -51,7 +51,7 @@ class User_Upload {
 
 		$this->pdo = $this->new_PDO($options['host'], $options['user'], $options['pass']);
 
-		$this->process_options($options);
+		$this->process_command($options);
 	}
 
 	function get_options_from_command_line() {
@@ -69,7 +69,7 @@ class User_Upload {
 		);
 	}
 
-	function process_options($options) {
+	function process_command($options) {
 
 		// Handle edge case of no arguments being passed
 		if($this->argc == 1) {
